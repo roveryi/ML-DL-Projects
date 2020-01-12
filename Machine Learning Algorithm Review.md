@@ -14,7 +14,7 @@ K-fold: divide the original dataset into K groups, each time use K-1 as training
 
 Leave-One-Out: assume m records in the dataset, each time use m-1 as training set and 1 as testing set (K = m in K-fold case). Accurate but computationally expensive when play with large dataset. 
 
-$\bullet$ Booststrap
+$\bullet$ Bootstrap
 
 Based on bootstrap sampling. Suppose original dataset $D$ has $m$ samples, every time randomly select with repetation from m samples. The selected samples forms training set $D'$, the dataset $D-D'$ serves for testing set. Based on $ \lim _{m\rightarrow \infty}(1-\frac{1}{m})^m = 1/e$, approximately 36.8% of data would not be sampled in the training set and would serve for testing the model.
 
@@ -30,14 +30,16 @@ $\bullet$ Random Search
 
 $\bullet$ Stochastic Optimization
 
-$\textbf{Performance Measure}$
+$\textbf{Performance Measure / Cost Function}$
 
 $\bullet$ Regression 
 
 1. Mean squared error $E(f;D) = \frac{1}{m}\sum_{i=1}^{m}(f(x_i)-y_i)^2$
 2. Mean absolute error $E(f;D) = \frac{1}{m}\sum_{i=1}^{m}|f(x_i)-y_i|$
 
-What would be the differences when training the model based on MSE and MAE? Depends on data. Linear regression would be the same, since error follows normal distribution. 
+What would be the differences when training the model based on MSE and MAE? 
+
+Mean squared loss is generally used, reduce the differences between any of the observations and predictions. Absolute error penalizes big differences between $y_i$ and $X_i^T\beta$ to a less degree than the least squares loss, so that the estimator is less affected by the outliers. Use a combination of square and absolute loss as Huber loss.
 
 $\bullet$ Classification
 
@@ -97,9 +99,33 @@ $\bullet$ Clustering
 
 #### Linear Regression
 
-$y = w^Tx + b, (w, b) = \arg_{w,b} \min \sum_{i=1}^m (f(x_i)-y_i)^2$
+$y_i = \sum_{j=1}^p x_{ij}\beta_j + \epsilon_i, \epsilon_i \sim N(0, \sigma^2)$
 
-When design matrix $X$ is full rank, $w = (X^TX)^{-1}X^Ty$
+Matrix form $y =X^T \beta$
+
+Least Square $\min L(\beta) =  ||y-X^T\beta||^2 \Rightarrow \frac{\part L}{\part \beta} = 2(y-X^T\beta)(-X)= 0 \Rightarrow \beta = (X^TX)^{-1}X^Ty $
+
+Maximum Likelihood gives the same result as Least Square $\max L(\beta) = \sum_{i=1}^n \log(p(y_i|x_i, \theta))=\sum_{i=1}^n \log(\frac{1}{\sqrt{2\pi \sigma^2}}\exp(\frac{-(y_i - x_i^T \theta)^2}{2\sigma^2}))$
+
+$E(\beta) = E((X^TX)^{-1}Xy) = E((X^TX)^{-1}X(X^T\beta + \epsilon)) = E(\beta + (X^TX)^{-1}X^T\epsilon) = \beta$The estimator of linear regression ($\beta$) is unbiased estimator.
+
+Considering the bias-variance trade off, penalize complex model. 
+
+$\textbf{Ridge Regression}$
+
+Loss function $L(\beta) = ||y-X^T\beta||^2 + \lambda ||\beta||^2$
+
+$\hat \beta_j = (1+N\lambda)^{-1} \hat \beta_j^{OLS}$
+
+Ridge regression shriks all coefficents by a uniform factor and does not set any coefficients to 0 such that cannot select variables.
+
+$\textbf{Lasso Regression}$
+
+Loss function (Lagrangian form) $L(\beta) = ||y-X^T\beta||^2 + \lambda |\beta|$ 
+
+Subgradient method $\hat \beta_j = S_{N\lambda}(\hat \beta^{OLS}) = \hat \beta^{OLS}\max(0,1-\frac{N\lambda}{|\hat \beta ^{OLS}|})$
+
+Translates values towards zero instead of setting smaller values to zero and leaving larger ones untouched, which can be used for variable selection.
 
 #### Generalize Linear Model
 
@@ -109,7 +135,9 @@ Newton method to get the weight and intercept
 
 #### Logistic Regression
 
-Sigmoid function $y = \frac{1}{1+\exp(-w^Tx + b)} \Rightarrow \ln\frac{y}{1-y} = w^Tx + b$
+$y_i \in \{0,1\}, y_i \sim \text{Bernoulli}(p_i), \Pr(y_i = 1) = p_i$
+
+logit function $\text{logit}(p_i) = \log{\frac{p_i}{1-p_i}}=x_i^T \beta$, then sigmoid function $p_i=\text{sigmoid}(x_i^T \beta) = \frac{1}{1+\exp(x_i^T \beta)}$
 
 $p_0 = \Pr(y=0|x) = \frac{1}{1+\exp(-w^Tx + b)}, p_1 = Pr(y=1|x) = \frac{\exp(-w^Tx + b)}{1+\exp(-w^Tx + b)}$
 
@@ -129,11 +157,37 @@ In Newton Method, the update rule is
 
 $\beta^{t+1} = \beta^t - (\frac{\part^2l(\beta)}{\part \beta \part \beta})^{-1}\frac{\part l(\beta)}{\part \beta}$
 
+#### Support Vector Machine
+
+$\textbf{Linear Separable}$
+
+Linear separable problem required no misclassification, which means all cases should be correctly classified. SVM finds a boundary that maximize the marge or the gap between data points.If a point is further away from the decision boundary, there ought to be greater confidence in classifying the point.
+
+Function margin of a hyperplane $(w,b)$ with respect  to data point $x_i, y_i$ is $\gamma_i = y_i(w^Tx_i + b)$. For positive label $y_i > 0$, we want $w^T x_i+b >>0$; for negative label $y_i < 0$, we want $w^Tx_i + b << 0$. 
+
+The distance between hyperplane $(w,b)$ and data point $x_i, y_i$ is $\gamma =\frac{|w^Tx_i + b|}{||w||}$. Find the hyperplan that maximize the margin. For positive examples $w^Tx_i + b \ge 1$, and for negative examples $w^Tx_i + b \le -1$, the equality exists at the points that closest to the hyperplan. Then consider the closet distance between positive and negative examples to the hyperplan, the objective is to maximize the distances $\frac{2}{||w||}$.  Consequently, the objective function is as following. Solve the problem through Lagragian multiplier and dual problem.
+$$
+\min \frac{1}{2} ||w||^2 \text{s.t. } y_i(w^Tx_i + b) \ge 1
+$$
+$\textbf{Not Linear Separable}$
+
+Introduce 'soft margin', where mis-classification is allowed, but we have to limit the number of misclassification. For the misclassification cases, we have $y_i(w^Tx_i+b) < 1$ or $y_i(w^Tx_i+b)-1<0$, the objective function can be written as following. 
+$$
+\min \frac{1}{2}||w||^2 + C\sum_{i=1}^m l_{0/1}(y_i(w^Tx_i+b)-1)
+$$
+For correct classification $l_{0/1} = 0$, for misclassification $l_{0/1} = 1$. However this function (zero one loss) is not differentiable, choose other forms of losses (Hinge loss, Exponential loss, Logistic loss). Use coordinate descent to solve the problem.
+
+Hinge loss $\text{hinge}(y_i, x_i) = \max(0, 1-y_i(w^T x_i + b))$: if classify correctly, $y_i$ and $w^Tx_i+b$ have the same sign, $\text{hinge}(y_i, x_i ) \in [0,1]$; if classify wrongly, $y_i$ and $w^Tx_i+b$ have different signs, $\text{hinge}(y_i, x_i ) > 1$.
+
+$\textbf{SVM Regression}$
+
+
+
 #### Linear Discriminate Analysis (LDA)
 
 Project all data on to linear hyperplane, make the points in the same group as close as possible, make the points in different groups as far as possible. 
 
-For Binary Classification, suppose $X_i, \mu_i, \Sigma_i$ are the data, mean and covariance matrix of class $i \in {0,1}$. Denote the target hyperplan is $w$. Consequently, the projection on the hyperplane of data, mean and covariance would be $,w^TX$ $w^T\mu_i$ and $w^T\Sigma_iw$.
+For Binary Classification, suppose $X_i, \mu_i, \Sigma_i$ are the data, mean and covariance matrix of class $i \in {0,1}$. Denote the target hyperplan is $w$. Consequently, the projection on the hyperplane of data, mean and covariance would be $w^TX$, $w^T\mu_i$ and $w^T\Sigma_iw$.
 
 The distance between projected mean is 
 $$
@@ -171,27 +225,13 @@ Likelihood $\prod_{i=1}^n p_i = \prod_{i = 1}^n \frac{\exp(w^Tx_i+b)}{\sum_{k=1}
 
 Log-likelihood $(w^Tx_i+b) - \log(\sum_{k=1}^K \exp(w^Tx_k + b))$
 
+#### Problems in Classification
 
+$\textbf{Unbalanced Classification}$
 
-#### Unbalance Classification
+$\bullet$ Adjust the objective function: 1. add weights to small labels / penalize correct classification on the large labels; 2. use confusion matrix; 3. use F-score  
 
-Undersampling 
-
-Oversampling
-
-
-
-#### Linear Support Vector Machine
-
-####Ridge Regression
-
-Add $l_2$ penalty for coefficients to linear regression
-
-$L(\beta) = |y-X\beta|^2 + \lambda |\beta|^2_{l_2}$
-
-$\bullet$ Kernel Ridge Regression
-
-$\bullet$ Gaussian Process/Bayesian Ridge Regression
+$\bullet$ Sampling techniques: 1. undersample the large labels; 2. oversample the small labels.
 
 ### Kernel Machine/Non-Parametric Regression
 
@@ -229,13 +269,13 @@ $\textbf{Missing Data}$ Assign weight for the samples on current feature without
 
 #### Ada Boosting
 
+
+
 ####Random Forest
 
 ####Extreme Gradient Boosting
 
 ###  Bayesian 
-
-### 
 
 ### Neural Network
 
@@ -385,6 +425,50 @@ $h_{i+1} = \sigma(\tilde s_i)$
 Same backward propagation procedure 
 
 Intuition: solving "covariate shift" problem, where positive and negative samples shifting to different distributions.
+
+### Recommendation System
+
+2020-01-11 Webinar
+
+$\bullet$ Content Based Filter
+
+User-item interactions matrix + user features + item features
+
+Pros: cold start problem solved
+
+Cons: complex structure (information collection, feature engineering)
+
+$\bullet$ Collaborateive Filtering
+
+User-item interactions matrix: row - users; column - product
+
+Values: Boolean - click or not, endorsed or not...; Categorical - review, star...
+
+1. Memory based filtering
+
+   Define a model for user-item interactions where users and items representations have to be learned from interactions matrix
+
+   User-User method (very sensitive to the interaction matrix): extract a row vector from the interaction matrix $\rightarrow$ search the K nearest neighbors of this user in the matrix $\rightarrow$ recommend the most popular items among the neighbors
+
+   Item-Item method (large variance): identify the prefered item of user we want to recommend for and extract the column $\rightarrow$ find the K nearest neighbors of this item in the matrix $\rightarrow$  recomment the item to users who have high review on other items
+
+2. Model based filtering
+
+   Define no mobel for user-item interactions and rely on similarities between users or items in terms of observed iteractions 
+
+   Matrix factorisation: interaction matrix = user matrix * item matrix + reconstruction error matrix 
+
+Pros: don't have to record the user information and product information 
+
+Cons: there is no record for new users/cold start problem (solution: random strategy; maximum expectation strategy; exploitary strategy)
+
+$\bullet$ Hybrid Methods
+
+Bias vs. Variance
+
+High variance (overfitting): recommend well to single user, but not good for multiple users (personalization)
+
+High bias (underfitting): recommend well to multiple users, but not good for single user
 
 ### Computer Vision
 
@@ -541,7 +625,7 @@ Content Cost Function $J_{content} (C,G) = \frac{1}{2} ||a^{[l](C)} - a^{[l](G)}
 
 Style Cost Function $J_{style} = \sum_{l}\frac{1}{(2n_H^l n_w^l n_c^l)^2}\sum_k \sum_{k'}||G_{kk'}^{[l](S)} - G_{kk'}^{[l](G)}||^2, G_{kk'} = \sum_{i}\sum_j a_{ijk} a_{ijk'}$, where $a_{ijk}$ is the activation at $(i,j,k)$. The style cost function describes the differences in the correlation matrix between style and generated image. The correlation matrix describes the correlation between activations at different locations between two layers, which furtherly describe what pixels appear at the same time or don't appear at the same time. The style cost function should take all low and high level features into consideration, so it sums over all layers.
 
-### Sequence Model
+### Sequence Model (Natural Language Processing)
 
 ####Recurrent Neural Network (Language Modeling)
 
