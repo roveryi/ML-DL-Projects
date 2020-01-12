@@ -161,7 +161,7 @@ $\beta^{t+1} = \beta^t - (\frac{\part^2l(\beta)}{\part \beta \part \beta})^{-1}\
 
 $\textbf{Linear Separable}$
 
-Linear separable problem required no misclassification, which means all cases should be correctly classified. SVM finds a boundary that maximize the marge or the gap between data points.If a point is further away from the decision boundary, there ought to be greater confidence in classifying the point.
+Linear separable problem required no misclassification, which means all cases should be correctly classified. SVM finds a boundary that maximize the margin or the gap between data points.If a point is further away from the decision boundary, there ought to be greater confidence in classifying the point.
 
 Function margin of a hyperplane $(w,b)$ with respect  to data point $x_i, y_i$ is $\gamma_i = y_i(w^Tx_i + b)$. For positive label $y_i > 0$, we want $w^T x_i+b >>0$; for negative label $y_i < 0$, we want $w^Tx_i + b << 0$. 
 
