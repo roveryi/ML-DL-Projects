@@ -267,15 +267,110 @@ $\textbf{Pruning}$  Regularization of trees to increase the generalization abili
 
 $\textbf{Missing Data}$ Assign weight for the samples on current feature without missing data. $\tilde D$ is the subset of $D$ that does not have missing data on feature $a$. $\rho = \frac{\sum_{x\in \tilde D }w_x}{\sum_{x\in D}w_x}$
 
-#### Ada Boosting
+#### Boosting
 
+Boosting methods focus on reducing bias, since each updating round weights on misclassification / residual would be updated to have a better learn on the things that are not learnt well on the previous step.
 
+$\textbf{Ada Boosting}$
 
-####Random Forest
+Additive of base classifiers $H(x) = \sum_{t=1}^T \alpha_t h_t(x)$
 
-####Extreme Gradient Boosting
+Exponential loss function $l_{\exp}(H|D) = E_{x\sim D}[\exp(-f(x)H(x))] = \Pr(f(x) = 1)\exp(-H(x)) + \Pr(f(x)=-1)\exp(H(x))$
+
+$\bullet$ The optimality of classifier $H(x)$
+
+Take derivative $\frac{\part l}{\part H(x)} = -\exp(-H(x))\Pr(f(x) = 1) + \exp(H(x))\Pr(f(x)=-1) = 0$
+
+$\Rightarrow H(x) = \frac{1}{2}\ln[\frac{\Pr(f(x) = 1)}{\Pr(f(x) = -1)}] \Rightarrow \text{sign}(H(x)) = \arg \max P(y|x)$, which is the maximum likelihood estimator / posterior distribution.
+
+$\bullet$ Update rule
+
+The next classifier is updated by following 
+$$
+\begin{aligned}
+l(H_{t-1} + h_t | D) &= E[\exp(-f(x)(H_{t-1}+ h_t))]\\
+&= E[\exp(-f(x)H_{t-1}) \exp(-f(x)h_t)]\\
+\text{Apply Tylor's Expansion} &= E[\exp(-f(x)H_{t-1})(1-f(x)h_t(x)+\frac{f^2(x)h_t^2(x)}{2})]\\
+&= E[\exp(-f(x)H_{t-1})(1-f(x)h_t(x)+\frac{1}{2})]\\
+\Rightarrow h_t(x) &= \arg \min E[\exp(-f(x)H_{t-1})(1-f(x)h_t(x)+\frac{1}{2})]\\
+&= \arg \max E[\exp(-f(x)H_{t-1})f(x)h_t(x)]\\
+&= \arg \max E[\frac{\exp(-f(x)H_{t-1})}{E[-f(x)H_{t-1}]}f(x)h_t(x)] \text{Introduce a constant}\\
+&=\arg \max E_{x\sim D_t}[f(x)h(x)]\\
+&= \arg \min E_{x \sim D_t}E[I(f(x) \neq h(x))]
+\end{aligned}
+$$
+The dataset $D_t$ of each step is updated by following. The main concept here is to update the distribution of input space, where put higher weights to the misclassifications. Initially, all samples have equal weight.
+$$
+\begin{aligned}
+D_{t+1}(x) &= \frac{D(x)\exp(-f(x)H_t(x))}{E[\exp(-f(x)H_t(x))]}\\
+&= \frac{D(x) \exp(-f(x)(H_{t-1}(x)))\exp(-f(x)\alpha_t h_t(x))}{E[-f(x)H_t(x)]}\\
+&= D_t(x) \exp(-f(x)\alpha_t h_t(x)) \frac{E[\exp(-f(x)H_{t-1}(x))]}{E[\exp(-f(x)H_t(x))]}
+\end{aligned}
+$$
+The weight of the classifier is updated by following 
+$$
+\begin{aligned}
+l(\alpha_t h_t|D_t) &= E[\exp(-f(x)\alpha_t h_t(x))]\\
+&= E[\exp(-\alpha_t)I[f(x) = h_t(x)] + \exp(\alpha_t)I[f(x) \neq h_t(x)]]\\
+&= \exp(-\alpha_t) p(f(x) = h_t(x)) + \exp(\alpha_t)p(f(x) \neq h_t(x)) \\
+&= \exp(-\alpha_t) (1-\epsilon_t) + \exp(\alpha_t) \epsilon_t\\
+\Rightarrow \alpha_t &= \frac{1}{2}\ln(\frac{1-\epsilon_t}{\epsilon_t})
+\end{aligned}
+$$
+Adaboost Pseudo Code:
+
+1. $D_1(x) = \frac{1}{m}$
+2. for t = 1, 2,..., T, do 
+   1. $h_t = \arg_{h_t}\min L(D, D_t)$
+   2. $\epsilon_t = \Pr(h_t(x) \neq f(x))$
+   3. if $\epsilon_t \ge 0.5$, break (because random guess would at least has 0.5 probability to be correct)
+   4. $\alpha_t = \frac{1}{2}\ln(\frac{1-\epsilon_t}{\epsilon_t})$
+   5. $D_{t+1} = \frac{D_t(x)\exp(-\alpha_tf (x)h_t(x))}{Z_t}$
+3. $H(x) = \text{sign}(\sum_{i=1}^T \alpha_t h_t(x))$
+
+$\textbf{Gradient Boosting / Extreme Gradient Boosting}$
+
+Objective function (loss + penalty) $\text{obj}(\theta) = L(\theta) + \Omega(\theta) = \sum_{i=1}^nl(y_i, \hat y_i) + \sum_{k=1}^K \Omega(f_k)$
+
+Prediction $\hat y_i = \sum_{k=1}^K f_k(x_i)$
+
+Addtive Training $\hat y_i^t = \sum_{k=1}^t f_k(x_i) = \hat y_i^{t-1} + f_t(x_i)$
+
+Objective function $\text{obj}^t = \sum_{i=1}^n l(y_i, \hat y_i^t)+ \sum_{i=1}^t \Omega(f_i) = \sum_{i=1}^n l(y_i, \hat y_i^{t-1}+f_t(x_i))+ \sum_{i=1}^{t-1} \Omega(f_i) + \Omega(f_t)$
+
+Apply Tylor Expansion of the loss function to second order
+
+$\text{obj}^t = \sum_{i = 1}^n [l(y_i, \hat y_i^{t-1}) + g_i f_t(x_i) + \frac{1}{2}h_i f_t^2(x_i)] + \Omega(f_t) + \text{const}$
+
+$g_i = \part_{\hat y_i^{t-1}} l(y_i, \hat y_i^{t-1}), h_i = \part^2_{\hat y_i^{t-1}} l(y_i, \hat y_i^{t-1})$
+
+Next tree of step $t$ would grow based on the above objective function. 
+
+Differences between Gradient Boosting and Extreme Gradient Boosting.                     $\bullet$ Gradient Boosting only uses first order information, while Extreme Gradient Boosting uses both first and second order Tylor expansion.                                        $\bullet$ Extreme Gradient Boosting can deal with missing data problem, because in the algorithm of growing a subtree, the direction of missing data is directly considered. However, gradient boosting treats missing values as zeros.                          $\bullet$ Extreme Gradient Boosting adopts similar bootstrap strategy with bagging methods, while Graident Boosting uses all data points in each round of updating.      $\bullet$ Extreme Gradient Boosting has better support for parrallel computing.
+
+####Bagging 
+
+Main concept: to make each classifier as independent as possible. Bagging methods focus on reducing variance, since each step a bootstrap samples is extracted from the original set to train a classifier. Decrease the fraction of samples to build a base learners will result in decrease in variance.
+
+Why bagging Naive Bayes classifier cannot improve its performance?
+
+If the classifier is very stable, the models will have a lot of agreement and you won't gain too much from the bagging. The less stable the classifier, the more likely you will gain.
+
+$\textbf{Random Forest}$
+
+Randomly select samples and features to train a weak classifier, then adopt majority voting to ensemble the final classifier.
+
+Average: simple averaging, weighted averaging 
+
+Voting: majority voting, plurality voting, weighted voting
+
+Random forest may lose interpretability.
 
 ###  Bayesian 
+
+### Clustering
+
+
 
 ### Neural Network
 
