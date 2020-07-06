@@ -1,0 +1,157 @@
+---
+title: "FianlProject"
+author: "Zhengxiang"
+date: "2/29/2020"
+output: pdf_document
+---
+```{r setup, include=TRUE}
+library(astsa)
+library(forecast)
+library(fpp2)
+library(ggplot2)
+library(Metrics)
+
+# read-in data
+setwd("/Users/rover/Desktop/2020 Winter/STATS 221/Final Project/")
+rawData <- read.csv('Earthquake/monthly_data.csv', header=FALSE)
+
+# transfer to time-series data
+png("Figures/fig1.png", width = 1200, height = 700, res = 100)
+tsData <- ts(rawData$V2, frequency = 12, start = c(1965, 1))
+plot.ts(tsData, type = 'l', lwd = 2, col = 'blue',
+        xlab = 'Time', 
+        ylab = 'Monthly No. of Earthquakes',
+        main = 'Monthly No. of Earthquakes')
+dev.off()
+mean(tsData)
+
+# moving average data 
+png("Figures/fig2.png", width = 1200, height = 700, res = 100)
+tsData.moving_avg = filter(tsData, side = 2, filter = rep(1/5, 5))
+plot.ts(tsData.moving_avg, type = 'l', lwd = 2, col = 'blue',
+        xlab = 'Time', 
+        ylab = 'Moving Average',
+        main = 'Moving Average Data')
+dev.off()
+
+# logrithm of data
+tsData.log <- log(tsData)
+png("Figures/fig3.png", width = 1200, height = 700, res = 100)
+plot.ts(log(tsData), lwd = 2, col = 'blue')
+dev.off()
+
+# regression detrend
+fit <- lm(tsData.log ~ time(tsData.log))
+summary(fit)
+
+png("Figures/fig4.png", width = 1200, height = 700, res = 100)
+par(mfrow = c(2,1))
+plot.ts(tsData.log, lwd = 2, col = 'blue', main = 'Time Series of log(Original Data) and Fitted Curve')
+abline(fit, col = 'red', lwd = 2)
+plot.ts(fit$residuals, lwd = 2, col = 'blue', main = 'Detrended log(Original Data)')
+dev.off()
+
+tsData.detrend <- fit$residuals
+tsData.detrend = ts(tsData.detrend, frequency = 12, start = c(1965,2))
+
+png("Figures/fig5.png", width = 1200, height = 700, res = 100)
+hist(tsData.detrend, probability = TRUE)
+dev.off()
+
+tsData.detrend.decom <- decompose(tsData.detrend)
+png("Figures/fig6.png", width = 1200, height = 900, res = 100)
+plot(tsData.detrend.decom)
+dev.off()
+
+ss.per = mvspec(tsData.detrend-tsData.detrend.decom$seasonal, col = 'blue', lwd = 2)
+
+```
+
+```{r, include=TRUE}
+# fit acf and pacf on the original data
+png("Figures/fig7.png", width = 1200, height = 700, res = 100)
+acf_diff = acf2(tsData.detrend, main = 'Detrended Data')
+dev.off()
+
+acf_diff = acf2(diff(tsData.detrend), main = 'Detrended Data')
+
+```
+```{r, include=TRUE}
+# fit ARIMA for the detrended data 
+a <- auto.arima(tsData.detrend, trace = TRUE, max.p = 10, max.q = 10, max.d = 10, seasonal = FALSE, stationary = FALSE)
+#png("Figures/fig8.png", width = 1200, height = 900, res = 100)
+best <- Arima(tsData.detrend, order = c(3,1,1))
+#dev.off()
+checkresiduals(best)
+
+as <- auto.arima(tsData.detrend, trace = TRUE, max.p = 10, max.q = 10, max.d = 10, seasonal = TRUE, stationary = FALSE)
+best_seasonal <- Arima(tsData.detrend, order = c(2,1,2), seasonal = c(1,0,0))
+png("Figures/fig9.png", width = 1200, height = 900, res = 100)
+checkresiduals((best_seasonal))
+dev.off()
+```
+
+```{r,include=TRUE}
+## difference detrended data
+# forecasting
+train_fore <- ts(tsData.detrend[1:564], frequency = 12, start = c(1965,1))
+test_fore <- ts(tsData.detrend[565:624], frequency = 12, start = c(2012,1))
+
+## ARIMA 
+best <- Arima(train_fore, order = c(3,1,1))
+best_seasonal <- Arima(train_fore, order = c(2,1,2), seasonal = c(1,0,0))
+
+
+arima.fit <- forecast(best, h = 60)
+seasonalarima.fit <- forecast(best_seasonal, h = 60)
+
+png("Figures/fig10.png", width = 1200, height = 700, res = 100)
+plot(arima.fit)
+lines(arima.fit$fitted, col = 'red')
+lines(test_fore)
+dev.off()
+
+png("Figures/fig11.png", width = 1200, height = 700, res = 100)
+plot(seasonalarima.fit)
+lines(seasonalarima.fit$fitted, col = 'red')
+lines(test_fore)
+dev.off()
+
+rmse(arima.fit[["mean"]], test_fore)
+rmse(seasonalarima.fit[["mean"]], test_fore)
+
+```
+
+```{r, include=TRUE}
+# periodogram
+png("Figures/fig12.png", width = 1200, height = 700, res = 100)
+ss.per = mvspec(tsData.detrend, col = 'blue',  log='n', lwd = 2)
+order(ss.per$spec,decreasing=T)[1:3]
+#abline(v=ss.per$freq[1], col = 'red', lwd = 2 )
+#abline(v=ss.per$freq[3], col = 'red', lwd = 2 )
+#abline(v=ss.per$freq[50], col = 'red', lwd = 2 )
+dev.off()
+
+# smoothed periodogram
+png("Figures/fig13.png", width = 1200, height = 700, res = 100)
+ss.per.ave = mvspec(tsData.detrend, kernel('daniell',2), col = 'blue', lwd = 2)
+dev.off()
+
+# statisitcs 
+# Confidence Interval
+U = qchisq(.05, 2) # 0.05063
+L = qchisq(.95, 2) # 7.3778
+CI_U = 2*ss.per$spec[50]/U # 2.94
+CI_L = 2*ss.per$spec[50]/L # 0.02
+CI_U 
+CI_L
+
+# parametric 
+spaic = spec.ar(tsData.detrend, log = "no")
+max_freq = spaic$freq[which.max(ss.per$spec)]
+abline(v = max_freq, col = "red", lwd = 2)
+
+ar = ar(tsData.detrend, order.max = 50)
+(ar)
+plot(1:50, ar$aic[-1], type = "o", xlab = "order", ylab = "AIC")
+```
